@@ -64,17 +64,19 @@ char** inttobin(int* endereco, int size) {
 
     for (int i = 0; i < size; i++) {
         int numero = endereco[i];
-        int temp = numero;
-        int tamanho = 1;
+        int tamanho = 0;
 
-        while (temp >>= 1) tamanho++;
+        while (numero > 0) {
+            tamanho++;
+            numero >>= 1;
+        }
 
         enderecobin[i] = (char*)malloc((tamanho + 1) * sizeof(char));
         enderecobin[i][tamanho] = '\0';
 
         for (int j = tamanho - 1; j >= 0; j--) {
-            enderecobin[i][j] = (numero & 1) + '0';
-            numero >>= 1;
+            enderecobin[i][j] = (endereco[i] & 1) + '0';
+            endereco[i] >>= 1;
         }
     }
 
