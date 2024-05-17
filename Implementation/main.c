@@ -59,24 +59,26 @@ int* entrada(const char* caminho, int* size) {
     return enderecofinal;
 }
 
+
 char** inttobin(int* endereco, int size) {
     char** enderecobin = (char**)malloc(size * sizeof(char*));
 
     for (int i = 0; i < size; i++) {
         int numero = endereco[i];
         int tamanho = 0;
+        int temp = numero;
 
-        while (numero > 0) {
+        while (temp > 0) {
             tamanho++;
-            numero >>= 1;
+            temp >>= 1;
         }
 
         enderecobin[i] = (char*)malloc((tamanho + 1) * sizeof(char));
         enderecobin[i][tamanho] = '\0';
 
         for (int j = tamanho - 1; j >= 0; j--) {
-            enderecobin[i][j] = (endereco[i] & 1) + '0';
-            endereco[i] >>= 1;
+            enderecobin[i][j] = (numero & 1) + '0';
+            numero >>= 1;
         }
     }
 
