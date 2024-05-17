@@ -1,0 +1,3 @@
+D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/cmake-build-debug/CMakeFiles/Implementation.dir
+D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/cmake-build-debug/CMakeFiles/rebuild_cache.dir

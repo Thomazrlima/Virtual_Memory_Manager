@@ -99,4 +99,4 @@ Como os endereços lógicos em `addresses.txt` foram gerados aleatoriamente e n�
 
 ## ⚖️ License
 
-[MIT](https://github.com/Thomazrlima/Virtual_Memory_Manager/LICENSE.md)
+[MIT](https://github.com/Thomazrlima/Virtual_Memory_Manager/LICENSE)
