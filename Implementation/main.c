@@ -2,85 +2,168 @@
 #include <stdlib.h>
 #include <string.h>
 
-int* entrada(const char* caminho, int* size);
-char** inttobin(int* endereco, int size);
-char** instrucao(int* endereco, int size);
+int* ler_enderecos(const char* caminho, int* tamanho);
+char** int_para_binario(int* enderecos, int tamanho);
+char** extrair_offset(char** enderecos_binarios, int tamanho);
+char** extrair_pagina(char** enderecos_binarios, int tamanho); // Alterei o nome da função para extrair_pagina
 
 int main() {
-    int size;
-    int* endereco = entrada("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &size);
-    char** enderecobin = inttobin(endereco, size);
+    int tamanho;
+    int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
-    if (endereco) {
-        printf("Lidos (%d):\n", size);
-        for (int i = 0; i < size; i++) {
-            printf("%d\n", endereco[i]);
+    if (enderecos) {
+        printf("Lidos (%d):\n", tamanho);
+        for (int i = 0; i < tamanho; i++) {
+            printf("%d\n", enderecos[i]);
         }
 
         printf("\nBinario:\n");
-        for (int i = 0; i < size; i++) {
-            printf("%s\n", enderecobin[i]);
-            free(enderecobin[i]);
+        for (int i = 0; i < tamanho; i++) {
+            printf("%s\n", enderecos_binarios[i]);
         }
 
-        free(endereco);
-        free(enderecobin);
+        char** offset = extrair_offset(enderecos_binarios, tamanho);
+        char** pagina = extrair_pagina(enderecos_binarios, tamanho); // Chamada corrigida para extrair_pagina
+
+        printf("\nOffset:\n");
+        for (int i = 0; i < tamanho; i++) {
+            printf("%s\n", offset[i]);
+        }
+
+        printf("\nPagina:\n"); // Corrigi o nome da seção impressa para "Pagina"
+        for (int i = 0; i < tamanho; i++) {
+            printf("%s\n", pagina[i]);
+        }
+
+        for (int i = 0; i < tamanho; i++) {
+            free(enderecos_binarios[i]);
+            free(offset[i]);
+            free(pagina[i]);
+        }
+
+        free(enderecos);
+        free(enderecos_binarios);
+        free(offset);
+        free(pagina);
     }
 
     return 0;
 }
 
-int* entrada(const char* caminho, int* size) {
+int* ler_enderecos(const char* caminho, int* tamanho) {
     FILE *file = fopen(caminho, "r");
     if (!file) {
         return NULL;
     }
 
-    int* endereco = NULL;
-    int count = 0;
-    int capacity = 10;
+    int* enderecos = NULL;
+    int contador = 0;
+    int capacidade = 10;
 
-    endereco = (int*)malloc(capacity * sizeof(int));
+    enderecos = (int*)malloc(capacidade * sizeof(int));
 
-    while (fscanf(file, "%d", &endereco[count]) == 1) {
-        count++;
-        if (count >= capacity) {
-            capacity *= 2;
-            int* novoEndereco = (int*)realloc(endereco, capacity * sizeof(int));
-            endereco = novoEndereco;
+    while (fscanf(file, "%d", &enderecos[contador]) == 1) {
+        contador++;
+        if (contador >= capacidade) {
+            capacidade *= 2;
+            int* novos_enderecos = (int*)realloc(enderecos, capacidade * sizeof(int));
+            enderecos = novos_enderecos;
         }
     }
 
     fclose(file);
 
-    int* enderecofinal = (int*)realloc(endereco, count * sizeof(int));
+    int* enderecos_finais = (int*)realloc(enderecos, contador * sizeof(int));
 
-    *size = count;
-    return enderecofinal;
+    *tamanho = contador;
+    return enderecos_finais;
 }
 
+char** int_para_binario(int* enderecos, int tamanho) {
+    char** enderecos_binarios = (char**)malloc(tamanho * sizeof(char*));
 
-char** inttobin(int* endereco, int size) {
-    char** enderecobin = (char**)malloc(size * sizeof(char*));
-
-    for (int i = 0; i < size; i++) {
-        int numero = endereco[i];
-        int tamanho = 0;
+    for (int i = 0; i < tamanho; i++) {
+        int numero = enderecos[i];
+        int tamanho_binario = 0;
         int temp = numero;
 
         while (temp > 0) {
-            tamanho++;
+            tamanho_binario++;
             temp >>= 1;
         }
 
-        enderecobin[i] = (char*)malloc((tamanho + 1) * sizeof(char));
-        enderecobin[i][tamanho] = '\0';
+        if (tamanho_binario == 0) {
+            tamanho_binario = 1;
+        }
 
-        for (int j = tamanho - 1; j >= 0; j--) {
-            enderecobin[i][j] = (numero & 1) + '0';
+        enderecos_binarios[i] = (char*)malloc((tamanho_binario + 1) * sizeof(char));
+        enderecos_binarios[i][tamanho_binario] = '\0';
+
+        for (int j = tamanho_binario - 1; j >= 0; j--) {
+            enderecos_binarios[i][j] = (numero & 1) + '0';
             numero >>= 1;
         }
     }
 
-    return enderecobin;
+    return enderecos_binarios;
+}
+
+char** extrair_offset(char** enderecos_binarios, int tamanho) {
+    char** offset = (char**)malloc(tamanho * sizeof(char*));
+
+    for (int i = 0; i < tamanho; i++) {
+        int len = strlen(enderecos_binarios[i]);
+        offset[i] = (char*)malloc(9 * sizeof(char));
+
+        if (len > 8) {
+            for (int j = 0; j < 8; j++) {
+                offset[i][j] = enderecos_binarios[i][len - 8 + j];
+            }
+        } else {
+            for (int j = 0; j < len; j++) {
+                offset[i][j] = enderecos_binarios[i][j];
+            }
+            for (int j = len; j < 8; j++) {
+                offset[i][j] = '0';
+            }
+        }
+        offset[i][8] = '\0';
+    }
+
+    return offset;
+}
+
+char** extrair_pagina(char** enderecos_binarios, int tamanho) {
+    char** pagina = (char**)malloc(tamanho * sizeof(char*));
+
+    for (int i = 0; i < tamanho; i++) {
+        int comp = strlen(enderecos_binarios[i]);
+        pagina[i] = (char*)malloc(9 * sizeof(char));
+
+        if (comp >= 16) {
+            for (int j = 0; j < 8; j++) {
+                pagina[i][j] = enderecos_binarios[i][comp - 16 + j];
+            }
+        } else if (comp > 8) {
+            int inicio = comp - 16;
+            if (inicio < 0) {
+                inicio = 0;
+            }
+            int copiar = comp - 8 - inicio;
+            for (int j = 0; j < copiar; j++) {
+                pagina[i][j] = enderecos_binarios[i][inicio + j];
+            }
+            for (int j = copiar; j < 8; j++) {
+                pagina[i][j] = '0';
+            }
+        } else {
+            for (int j = 0; j < 8; j++) {
+                pagina[i][j] = '0';
+            }
+        }
+        pagina[i][8] = '\0';
+    }
+
+    return pagina;
 }
