@@ -5,7 +5,7 @@
 int* ler_enderecos(const char* caminho, int* tamanho);
 char** int_para_binario(int* enderecos, int tamanho);
 char** extrair_offset(char** enderecos_binarios, int tamanho);
-char** extrair_pagina(char** enderecos_binarios, int tamanho); // Alterei o nome da função para extrair_pagina
+char** extrair_pagina(char** enderecos_binarios, int tamanho);
 
 int main() {
     int tamanho;
@@ -24,14 +24,14 @@ int main() {
         }
 
         char** offset = extrair_offset(enderecos_binarios, tamanho);
-        char** pagina = extrair_pagina(enderecos_binarios, tamanho); // Chamada corrigida para extrair_pagina
+        char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
         printf("\nOffset:\n");
         for (int i = 0; i < tamanho; i++) {
             printf("%s\n", offset[i]);
         }
 
-        printf("\nPagina:\n"); // Corrigi o nome da seção impressa para "Pagina"
+        printf("\nPagina:\n");
         for (int i = 0; i < tamanho; i++) {
             printf("%s\n", pagina[i]);
         }
