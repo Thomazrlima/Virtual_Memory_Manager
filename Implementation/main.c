@@ -3,6 +3,8 @@
 #include <string.h>
 
 #define FRAME_TAMANHO 128
+#define PAGE_SIZE 256
+#define MEMORY_SIZE 65536
 
 typedef struct {
     int num_frame;
@@ -19,9 +21,14 @@ int* ler_enderecos(const char* caminho, int* tamanho);
 char** int_para_binario(int* enderecos, int tamanho);
 char** extrair_offset(char** enderecos_binarios, int tamanho);
 char** extrair_pagina(char** enderecos_binarios, int tamanho);
+
 // Memoria
 void iniciar_memoria();
 void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual);
+
+//Backing_Storage
+void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_atual);
 
 int main() {
     int tamanho;
@@ -54,6 +61,16 @@ int main() {
         for (int i = 0; i < tamanho; i++) {
             printf("%s\n", pagina[i]);
         }
+
+        FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+
+        for (int i = 0; i < tamanho; i++) {
+            int num_pagina = (int)strtol(pagina[i], NULL, 2);
+            int offset_val = (int)strtol(offset[i], NULL, 2);
+            acessar_memoria(backing_store, num_pagina, offset_val, i);
+        }
+
+        fclose(backing_store);
 
         for (int i = 0; i < tamanho; i++) {
             free(enderecos_binarios[i]);
@@ -113,14 +130,19 @@ char** int_para_binario(int* enderecos, int tamanho) {
             temp >>= 1;
         }
 
-        if (tamanho_binario == 0) {
-            tamanho_binario = 1;
+        int zero = 16 - tamanho_binario;
+        if (zero < 0) {
+            zero = 0;
         }
 
-        enderecos_binarios[i] = (char*)malloc((tamanho_binario + 1) * sizeof(char));
-        enderecos_binarios[i][tamanho_binario] = '\0';
+        enderecos_binarios[i] = (char*)malloc((16 + 1) * sizeof(char));
+        enderecos_binarios[i][16] = '\0';
 
-        for (int j = tamanho_binario - 1; j >= 0; j--) {
+        for (int j = 0; j < zero; j++) {
+            enderecos_binarios[i][j] = '0';
+        }
+
+        for (int j = 15; j >= zero; j--) {
             enderecos_binarios[i][j] = (numero & 1) + '0';
             numero >>= 1;
         }
@@ -158,35 +180,14 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho) {
     char** pagina = (char**)malloc(tamanho * sizeof(char*));
 
     for (int i = 0; i < tamanho; i++) {
-        int comp = strlen(enderecos_binarios[i]);
         pagina[i] = (char*)malloc(9 * sizeof(char));
-
-        if (comp >= 16) {
-            for (int j = 0; j < 8; j++) {
-                pagina[i][j] = enderecos_binarios[i][comp - 16 + j];
-            }
-        } else if (comp > 8) {
-            int inicio = comp - 16;
-            if (inicio < 0) {
-                inicio = 0;
-            }
-            int copiar = comp - 8 - inicio;
-            for (int j = 0; j < copiar; j++) {
-                pagina[i][j] = enderecos_binarios[i][inicio + j];
-            }
-            for (int j = copiar; j < 8; j++) {
-                pagina[i][j] = '0';
-            }
-        } else {
-            for (int j = 0; j < 8; j++) {
-                pagina[i][j] = '0';
-            }
-        }
+        strncpy(pagina[i], enderecos_binarios[i] + 0, 8);
         pagina[i][8] = '\0';
     }
 
     return pagina;
 }
+
 
 // Memoria
 void iniciar_memoria() {
@@ -204,4 +205,49 @@ void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual) {
     memoria[indice_frame].ocupado = 1;
     memoria[indice_frame].ultimo_acesso = tempo_atual;
     memoria[indice_frame].tempo = tempo_atual;
+}
+
+//Backing_Storage
+void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer) {
+    int offset = num_pagina * PAGE_SIZE;
+    fseek(backing_store, offset, SEEK_SET);
+    fread(buffer, sizeof(char), PAGE_SIZE, backing_store);
+}
+
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_atual) {
+    int frame_encontrado = -1;
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        if (memoria[i].num_pagina == num_pagina) {
+            frame_encontrado = i;
+            break;
+        }
+    }
+
+    if (frame_encontrado != -1) {
+        printf("Pagina %d encontrada no frame %d\n", num_pagina, frame_encontrado);
+        atualizar_frame(frame_encontrado, num_pagina, tempo_atual);
+    } else {
+        printf("Pagina %d nao encontrada na memoria, buscando no BACKING STORE\n", num_pagina);
+
+        int frame_vazio = -1;
+        for (int i = 0; i < FRAME_TAMANHO; i++) {
+            if (memoria[i].ocupado == 0) {
+                frame_vazio = i;
+                break;
+            }
+        }
+
+        if (frame_vazio != -1) {
+            printf("Frame vazio encontrado na memoria (frame %d)\n", frame_vazio);
+            char buffer[PAGE_SIZE];
+            ler_backing_store(backing_store, num_pagina, buffer);
+            //ainda não implementada
+
+            atualizar_frame(frame_vazio, num_pagina, tempo_atual);
+        } else {
+            printf("Realizando substituicao\n");
+            printf("Realizando substituicao\n");
+            //ainda não implementada
+        }
+    }
 }
