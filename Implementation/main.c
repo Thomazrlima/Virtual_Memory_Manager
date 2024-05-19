@@ -2,15 +2,34 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FRAME_TAMANHO 128
+
+typedef struct {
+    int num_frame;
+    int num_pagina;
+    int ocupado;
+    int ultimo_acesso;
+    int tempo;
+} Frame;
+
+Frame memoria[FRAME_TAMANHO];
+
+// Leitura do Addresses
 int* ler_enderecos(const char* caminho, int* tamanho);
 char** int_para_binario(int* enderecos, int tamanho);
 char** extrair_offset(char** enderecos_binarios, int tamanho);
 char** extrair_pagina(char** enderecos_binarios, int tamanho);
+// Memoria
+void iniciar_memoria();
+void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual);
 
 int main() {
     int tamanho;
     int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
+
+    // Inicializa a memória
+    iniciar_memoria();
 
     if (enderecos) {
         printf("Lidos (%d):\n", tamanho);
@@ -51,6 +70,7 @@ int main() {
     return 0;
 }
 
+// Leitura do addresses
 int* ler_enderecos(const char* caminho, int* tamanho) {
     FILE *file = fopen(caminho, "r");
     if (!file) {
@@ -166,4 +186,22 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho) {
     }
 
     return pagina;
+}
+
+// Memoria
+void iniciar_memoria() {
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        memoria[i].num_frame = i;
+        memoria[i].num_pagina = -1;
+        memoria[i].ocupado = 0;
+        memoria[i].ultimo_acesso = 0;
+        memoria[i].tempo = 0;
+    }
+}
+
+void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual) {
+    memoria[indice_frame].num_pagina = num_pagina;
+    memoria[indice_frame].ocupado = 1;
+    memoria[indice_frame].ultimo_acesso = tempo_atual;
+    memoria[indice_frame].tempo = tempo_atual;
 }
