@@ -7,6 +7,11 @@
 #define MEMORY_SIZE 65536
 
 typedef struct {
+    int num_pagina;
+    int num_frame;
+} PageTableEntry;
+
+typedef struct {
     int num_frame;
     int num_pagina;
     int ocupado;
@@ -16,6 +21,7 @@ typedef struct {
 } Frame;
 
 Frame memoria[FRAME_TAMANHO];
+PageTableEntry page_table[FRAME_TAMANHO];
 
 // Leitura do Addresses
 int* ler_enderecos(const char* caminho, int* tamanho);
@@ -25,7 +31,9 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho);
 
 // Memoria
 void iniciar_memoria();
+void iniciar_page_table();
 void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual);
+void atualizar_page_table(int num_pagina, int num_frame);
 
 //Backing_Storage
 void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
@@ -36,8 +44,9 @@ int main() {
     int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
-    // Inicializa a memória
+    // Inicializa a memória e a tabela de páginas
     iniciar_memoria();
+    iniciar_page_table();
 
     if (enderecos) {
         printf("Lidos (%d):\n", tamanho);
@@ -200,11 +209,29 @@ void iniciar_memoria() {
     }
 }
 
+void iniciar_page_table() {
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        page_table[i].num_pagina = -1;
+        page_table[i].num_frame = -1;
+    }
+}
+
 void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual) {
     memoria[indice_frame].num_pagina = num_pagina;
     memoria[indice_frame].ocupado = 1;
     memoria[indice_frame].ultimo_acesso = tempo_atual;
     memoria[indice_frame].tempo = tempo_atual;
+    atualizar_page_table(num_pagina, indice_frame);
+}
+
+void atualizar_page_table(int num_pagina, int num_frame) {
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        if (page_table[i].num_pagina == -1) {
+            page_table[i].num_pagina = num_pagina;
+            page_table[i].num_frame = num_frame;
+            break;
+        }
+    }
 }
 
 //Backing_Storage
@@ -217,8 +244,8 @@ void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer) {
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_atual) {
     int frame_encontrado = -1;
     for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].num_pagina == num_pagina) {
-            frame_encontrado = i;
+        if (page_table[i].num_pagina == num_pagina) {
+            frame_encontrado = page_table[i].num_frame;
             break;
         }
     }
@@ -241,7 +268,6 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_
             printf("Frame vazio encontrado na memoria (frame %d)\n", frame_vazio);
             char buffer[PAGE_SIZE];
             ler_backing_store(backing_store, num_pagina, buffer);
-            // Cpy dos dados
             memcpy(memoria[frame_vazio].dados, buffer, PAGE_SIZE);
 
             atualizar_frame(frame_vazio, num_pagina, tempo_atual);
