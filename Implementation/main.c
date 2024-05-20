@@ -12,6 +12,7 @@ typedef struct {
     int ocupado;
     int ultimo_acesso;
     int tempo;
+    char dados[PAGE_SIZE];
 } Frame;
 
 Frame memoria[FRAME_TAMANHO];
@@ -188,7 +189,6 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho) {
     return pagina;
 }
 
-
 // Memoria
 void iniciar_memoria() {
     for (int i = 0; i < FRAME_TAMANHO; i++) {
@@ -241,13 +241,13 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_
             printf("Frame vazio encontrado na memoria (frame %d)\n", frame_vazio);
             char buffer[PAGE_SIZE];
             ler_backing_store(backing_store, num_pagina, buffer);
-            //ainda não implementada
+            // Cpy dos dados
+            memcpy(memoria[frame_vazio].dados, buffer, PAGE_SIZE);
 
             atualizar_frame(frame_vazio, num_pagina, tempo_atual);
         } else {
             printf("Realizando substituicao\n");
-            printf("Realizando substituicao\n");
-            //ainda não implementada
+            // Implementação da substituição de página
         }
     }
 }
