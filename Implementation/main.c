@@ -8,7 +8,6 @@
 
 typedef struct {
     int num_pagina;
-    int num_frame;
 } PageTableEntry;
 
 typedef struct {
@@ -212,7 +211,6 @@ void iniciar_memoria() {
 void iniciar_page_table() {
     for (int i = 0; i < FRAME_TAMANHO; i++) {
         page_table[i].num_pagina = -1;
-        page_table[i].num_frame = -1;
     }
 }
 
@@ -225,13 +223,7 @@ void atualizar_frame(int indice_frame, int num_pagina, int tempo_atual) {
 }
 
 void atualizar_page_table(int num_pagina, int num_frame) {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (page_table[i].num_pagina == -1) {
-            page_table[i].num_pagina = num_pagina;
-            page_table[i].num_frame = num_frame;
-            break;
-        }
-    }
+    page_table[num_frame].num_pagina = num_pagina;
 }
 
 //Backing_Storage
@@ -245,7 +237,7 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo_
     int frame_encontrado = -1;
     for (int i = 0; i < FRAME_TAMANHO; i++) {
         if (page_table[i].num_pagina == num_pagina) {
-            frame_encontrado = page_table[i].num_frame;
+            frame_encontrado = i;
             break;
         }
     }
