@@ -42,6 +42,9 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
 void adicionar_fifo(Frame *memoria, int frame);
 int remover_fifo(Frame *memoria);
 
+//Print
+void imprimir(int endereco_virtual);
+
 int main() {
     int tamanho;
     int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
@@ -51,28 +54,8 @@ int main() {
     iniciar_page_table();
 
     if (enderecos) {
-        printf("Lidos (%d):\n", tamanho);
-        for (int i = 0; i < tamanho; i++) {
-            printf("%d\n", enderecos[i]);
-        }
-
-        printf("\nBinario:\n");
-        for (int i = 0; i < tamanho; i++) {
-            printf("%s\n", enderecos_binarios[i]);
-        }
-
         char** offset = extrair_offset(enderecos_binarios, tamanho);
         char** pagina = extrair_pagina(enderecos_binarios, tamanho);
-
-        printf("\nOffset:\n");
-        for (int i = 0; i < tamanho; i++) {
-            printf("%s\n", offset[i]);
-        }
-
-        printf("\nPagina:\n");
-        for (int i = 0; i < tamanho; i++) {
-            printf("%s\n", pagina[i]);
-        }
 
         FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
 
@@ -211,11 +194,8 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
         }
     }
     if (frame_encontrado != -1) {
-        printf("Pagina %d encontrada no frame %d\n", num_pagina, frame_encontrado);
         memoria[frame_encontrado].ultimo_acesso++;
     } else {
-        printf("Pagina %d nao encontrada na memoria\n", num_pagina);
-
         int frame_vazio = -1;
         for (int i = 0; i < FRAME_TAMANHO; i++) {
             if (!memoria[i].ocupado) {
@@ -225,16 +205,17 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
         }
 
         if (frame_vazio != -1) {
-            printf("Frame vazio encontrado na memoria (frame %d)\n", frame_vazio);
             ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
             atualizar_frame(frame_vazio, num_pagina);
         } else {
             int frame_substituir = remover_fifo(memoria);
-            printf("Substituindo frame %d\n", frame_substituir);
             ler_backing_store(backing_store, num_pagina, memoria[frame_substituir].dados);
             atualizar_frame(frame_substituir, num_pagina);
         }
     }
+
+    // Adicionando a chamada da função para imprimir o endereço físico correspondente
+    imprimir(num_pagina * PAGE_SIZE + offset);
 }
 
 // FIFO Queue
@@ -283,4 +264,24 @@ int remover_fifo(Frame *memoria) {
     }
 
     return frame_substituir;
+}
+
+void imprimir(int endereco_virtual) {
+    int num_pagina = endereco_virtual / PAGE_SIZE;
+    int offset = endereco_virtual % PAGE_SIZE;
+
+    int frame = -1;
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        if (memoria[i].ocupado && memoria[i].num_pagina == num_pagina) {
+            frame = i;
+            break;
+        }
+    }
+
+    if (frame != -1) {
+        int endereco_fisico = frame * PAGE_SIZE + offset;
+        printf("Virtual address: %d Physical address: %d Page number: %d\n", endereco_fisico, endereco_virtual, num_pagina);
+    } else {
+        printf("Página correspondente ao endereço virtual não encontrada na memória.\n");
+    }
 }
