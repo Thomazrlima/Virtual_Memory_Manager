@@ -280,7 +280,7 @@ void imprimir(int endereco_virtual) {
 
     if (frame != -1) {
         int endereco_fisico = frame * PAGE_SIZE + offset;
-        printf("Virtual address: %d Physical address: %d Page number: %d\n", endereco_fisico, endereco_virtual, num_pagina);
+        printf("Virtual address: %d Physical address: %d Page number: %d\n", endereco_virtual, endereco_fisico, num_pagina);
     } else {
         printf("Página correspondente ao endereço virtual não encontrada na memória.\n");
     }
