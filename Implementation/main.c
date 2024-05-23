@@ -64,7 +64,7 @@ void atualizar_tlb(int num_pagina, int num_frame);
 
 int main() {
     int tamanho;
-    int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    int* enderecos = ler_enderecos("C:/PENTES/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
     iniciar_memoria();
@@ -74,7 +74,7 @@ int main() {
         char** offset = extrair_offset(enderecos_binarios, tamanho);
         char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
-        FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+        FILE *backing_store = fopen("C:/PENTES/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
 
         for (int i = 0; i < tamanho; i++) {
             int num_pagina = (int)strtol(pagina[i], NULL, 2);

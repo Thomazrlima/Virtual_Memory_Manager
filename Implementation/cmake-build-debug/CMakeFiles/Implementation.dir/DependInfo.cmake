@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/main.c" "CMakeFiles/Implementation.dir/main.c.obj" "gcc" "CMakeFiles/Implementation.dir/main.c.obj.d"
+  "C:/PENTES/Virtual_Memory_Manager/Implementation/main.c" "CMakeFiles/Implementation.dir/main.c.obj" "gcc" "CMakeFiles/Implementation.dir/main.c.obj.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
