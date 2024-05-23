@@ -49,8 +49,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "C:/PENTES/Virtual_Memory_Manager/Implementation/cmake-build-debug",
-		"source" : "C:/PENTES/Virtual_Memory_Manager/Implementation"
+		"build" : "D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/cmake-build-debug",
+		"source" : "D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation"
 	},
 	"version" : 
 	{

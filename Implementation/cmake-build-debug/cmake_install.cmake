@@ -1,4 +1,4 @@
-# Install script for directory: C:/PENTES/Virtual_Memory_Manager/Implementation
+# Install script for directory: D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,7 +34,7 @@ endif()
 
 # Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Users/thoma/AppData/Local/Programs/CLion/bin/mingw/bin/objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Users/Thomaz/AppData/Local/Programs/CLion/bin/mingw/bin/objdump.exe")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -45,5 +45,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "C:/PENTES/Virtual_Memory_Manager/Implementation/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
