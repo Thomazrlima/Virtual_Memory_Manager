@@ -4,7 +4,6 @@
 
 #define FRAME_TAMANHO 128
 #define PAGE_SIZE 256
-#define MEMORY_SIZE 65536
 #define TLB_SIZE 16
 
 typedef struct {
@@ -47,7 +46,7 @@ void atualizar_page_table(int num_pagina, int num_frame);
 int verificar_page_table(int num_pagina);
 int encontrar_frame_vazio();
 int substituir_frame();
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo);
 
 //TLB
 
@@ -83,7 +82,7 @@ int main() {
     for (int i = 0; i < tamanho; i++) {
         int num_pagina = (int)strtol(pagina[i], NULL, 2);
         int offset_val = (int)strtol(offset[i], NULL, 2);
-        acessar_memoria(backing_store, num_pagina, offset_val);
+        acessar_memoria(backing_store, num_pagina, offset_val, i);
     }
 
     fclose(backing_store);
@@ -188,7 +187,7 @@ void iniciar_page_table() {
 void atualizar_frame(int num_frame, int num_pagina) {
     memoria[num_frame].num_pagina = num_pagina;
     memoria[num_frame].ocupado = 1;
-    memoria[num_frame].ultimo_acesso++;
+    //memoria[num_frame].ultimo_acesso = tempo;
     memoria[num_frame].tempo++;
     atualizar_page_table(num_pagina, num_frame);
     adicionar_fifo(memoria, num_frame);
@@ -221,14 +220,15 @@ int substituir_frame() {
     return remover_fifo(memoria);
 }
 
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset, int tempo) {
     int frame_encontrado = buscar_TLB(num_pagina);
     if (frame_encontrado != -1) {
-        memoria[frame_encontrado].ultimo_acesso++;
+        memoria[frame_encontrado].ultimo_acesso = tempo;
     } else {
         int frame_encontrado_memoria = verificar_page_table(num_pagina);
         if (frame_encontrado_memoria != -1) {
             frame_encontrado = frame_encontrado_memoria;
+            memoria[frame_encontrado_memoria].ultimo_acesso = tempo;
         } else {
             page_faults++;
             int frame_vazio = encontrar_frame_vazio();
@@ -319,8 +319,8 @@ void iniciar_TLB() {
 
 int buscar_TLB(int num_pagina) {
     for (int i = 0; i < TLB_SIZE; i++) {
-        if (TLB[i].num_pagina == num_pagina && TLB[i].valido == 1) {
-            return TLB[i].num_frame;
+        if (TLB[i].num_pagina == num_pagina && TLB[i].valido) {
+            return i;
         }
     }
     return -1;
@@ -329,11 +329,11 @@ int buscar_TLB(int num_pagina) {
 void atualizar_TLB(int num_pagina, int num_frame) {
     static int proxima_entrada = 0;
 
-    proxima_entrada = (proxima_entrada + 1) % TLB_SIZE;
-
     TLB[proxima_entrada].num_pagina = num_pagina;
     TLB[proxima_entrada].num_frame = num_frame;
     TLB[proxima_entrada].valido = 1;
+
+    proxima_entrada = (proxima_entrada + 1) % TLB_SIZE;
 }
 
 void imprimir(int endereco_virtual, int frame, int valor, int indice_TLB) {

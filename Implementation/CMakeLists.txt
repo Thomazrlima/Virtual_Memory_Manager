@@ -3,4 +3,4 @@ project(Implementation C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(Implementation main.c)
+add_executable(Implementation vm.c)
