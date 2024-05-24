@@ -2,9 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FRAME_TAMANHO 128
+#define FRAME_TAMANHO 16
 #define PAGE_SIZE 256
 #define MEMORY_SIZE 65536
+#define TLB_SIZE 16
+
+typedef struct {
+    int num_pagina;
+    int num_frame;
+} TLB_Entry;
 
 typedef struct {
     int num_pagina;
@@ -21,7 +27,10 @@ typedef struct {
 
 Frame memoria[FRAME_TAMANHO];
 PageTable page_table[FRAME_TAMANHO];
-int page_faults = 0;
+TLB_Entry tlb[TLB_SIZE];
+
+int tlb_hit_count = 0;
+int tlb_miss_count = 0;
 
 // Leitura dos Addresses
 int* ler_enderecos(const char* caminho, int* tamanho);
@@ -32,59 +41,60 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho);
 // Memoria
 void iniciar_memoria();
 void iniciar_page_table();
+void iniciar_tlb();
 void atualizar_frame(int num_frame, int num_pagina);
 void atualizar_page_table(int num_pagina, int num_frame);
-
-// Verificação de memória
-int verificar_page_table(int num_pagina);
-int encontrar_frame_vazio();
-int substituir_frame();
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
+int consultar_tlb(int num_pagina);
+void adicionar_tlb(int num_pagina, int num_frame);
 
 // Backing_Storage
 void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
 
 // FIFO Queue
 void adicionar_fifo(Frame *memoria, int frame);
 int remover_fifo(Frame *memoria);
 
 // Print
-void imprimir(int endereco_virtual, int frame, int valor);
-void imprimir_resultados(int tamanho);
+void imprimir(int endereco_virtual);
 
 int main() {
     int tamanho;
-    int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    int* enderecos = ler_enderecos("addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
     iniciar_memoria();
     iniciar_page_table();
+    iniciar_tlb();
 
-    char** offset = extrair_offset(enderecos_binarios, tamanho);
-    char** pagina = extrair_pagina(enderecos_binarios, tamanho);
+    if (enderecos) {
+        char** offset = extrair_offset(enderecos_binarios, tamanho);
+        char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
-    FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+        FILE *backing_store = fopen("BACKING_STORE.bin", "rb");
 
-    for (int i = 0; i < tamanho; i++) {
-        int num_pagina = (int)strtol(pagina[i], NULL, 2);
-        int offset_val = (int)strtol(offset[i], NULL, 2);
-        acessar_memoria(backing_store, num_pagina, offset_val);
+        for (int i = 0; i < tamanho; i++) {
+            int num_pagina = (int)strtol(pagina[i], NULL, 2);
+            int offset_val = (int)strtol(offset[i], NULL, 2);
+            acessar_memoria(backing_store, num_pagina, offset_val);
+        }
+
+        fclose(backing_store);
+
+        for (int i = 0; i < tamanho; i++) {
+            free(enderecos_binarios[i]);
+            free(offset[i]);
+            free(pagina[i]);
+        }
+
+        free(enderecos);
+        free(enderecos_binarios);
+        free(offset);
+        free(pagina);
     }
 
-    fclose(backing_store);
-
-    for (int i = 0; i < tamanho; i++) {
-        free(enderecos_binarios[i]);
-        free(offset[i]);
-        free(pagina[i]);
-    }
-
-    free(enderecos);
-    free(enderecos_binarios);
-    free(offset);
-    free(pagina);
-
-    imprimir_resultados(tamanho);
+    printf("TLB Hit Count: %d\n", tlb_hit_count);
+    printf("TLB Miss Count: %d\n", tlb_miss_count);
 
     return 0;
 }
@@ -92,6 +102,9 @@ int main() {
 // Leitura dos Addresses
 int* ler_enderecos(const char* caminho, int* tamanho) {
     FILE *file = fopen(caminho, "r");
+    if (!file) {
+        return NULL;
+    }
 
     int* enderecos = NULL;
     int cont = 0;
@@ -170,63 +183,40 @@ void iniciar_page_table() {
     }
 }
 
+void iniciar_tlb() {
+    for (int i = 0; i < TLB_SIZE; i++) {
+        tlb[i].num_pagina = -1;
+        tlb[i].num_frame = -1;
+    }
+}
+
 void atualizar_frame(int num_frame, int num_pagina) {
     memoria[num_frame].num_pagina = num_pagina;
     memoria[num_frame].ocupado = 1;
     memoria[num_frame].ultimo_acesso++;
     memoria[num_frame].tempo++;
     atualizar_page_table(num_pagina, num_frame);
-    adicionar_fifo(memoria, num_frame);
 }
 
 void atualizar_page_table(int num_pagina, int num_frame) {
     page_table[num_pagina].num_pagina = num_frame;
 }
 
-// Verificação de memória
-int verificar_page_table(int num_pagina) {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].ocupado && memoria[i].num_pagina == num_pagina) {
-            return i;
+int consultar_tlb(int num_pagina) {
+    for (int i = 0; i < TLB_SIZE; i++) {
+        if (tlb[i].num_pagina == num_pagina) {
+            tlb_hit_count++;
+            return tlb[i].num_frame;
         }
     }
+    tlb_miss_count++;
     return -1;
 }
 
-int encontrar_frame_vazio() {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (!memoria[i].ocupado) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int substituir_frame() {
-    return remover_fifo(memoria);
-}
-
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
-    int frame_encontrado = verificar_page_table(num_pagina);
-    if (frame_encontrado != -1) {
-        memoria[frame_encontrado].ultimo_acesso++;
-    } else {
-        page_faults++;
-        int frame_vazio = encontrar_frame_vazio();
-
-        if (frame_vazio != -1) {
-            ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
-            atualizar_frame(frame_vazio, num_pagina);
-            frame_encontrado = frame_vazio;
-        } else {
-            int frame_substituir = substituir_frame();
-            ler_backing_store(backing_store, num_pagina, memoria[frame_substituir].dados);
-            atualizar_frame(frame_substituir, num_pagina);
-            frame_encontrado = frame_substituir;
-        }
-    }
-
-    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, memoria[frame_encontrado].dados[offset]);
+void adicionar_tlb(int num_pagina, int num_frame) {
+    int index = tlb_miss_count % TLB_SIZE;
+    tlb[index].num_pagina = num_pagina;
+    tlb[index].num_frame = num_frame;
 }
 
 // Backing_Storage
@@ -234,6 +224,45 @@ void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer) {
     int offset = num_pagina * PAGE_SIZE;
     fseek(backing_store, offset, SEEK_SET);
     fread(buffer, sizeof(char), PAGE_SIZE, backing_store);
+}
+
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
+    int frame_encontrado = consultar_tlb(num_pagina);
+    if (frame_encontrado != -1) {
+        memoria[frame_encontrado].ultimo_acesso++;
+    } else {
+        frame_encontrado = -1;
+        for (int i = 0; i < FRAME_TAMANHO; i++) {
+            if (memoria[i].ocupado && memoria[i].num_pagina == num_pagina) {
+                frame_encontrado = i;
+                break;
+            }
+        }
+        if (frame_encontrado != -1) {
+            memoria[frame_encontrado].ultimo_acesso++;
+        } else {
+            int frame_vazio = -1;
+            for (int i = 0; i < FRAME_TAMANHO; i++) {
+                if (!memoria[i].ocupado) {
+                    frame_vazio = i;
+                    break;
+                }
+            }
+            if (frame_vazio != -1) {
+                ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
+                atualizar_frame(frame_vazio, num_pagina);
+                adicionar_tlb(num_pagina, frame_vazio);
+            } else {
+                int frame_substituir = remover_fifo(memoria);
+                ler_backing_store(backing_store, num_pagina, memoria[frame_substituir].dados);
+                atualizar_frame(frame_substituir, num_pagina);
+                adicionar_tlb(num_pagina, frame_substituir);
+            }
+        }
+    }
+
+    // Adicione a chamada da função para imprimir o endereço físico correspondente
+    imprimir(num_pagina * PAGE_SIZE + offset);
 }
 
 // FIFO Queue
@@ -267,7 +296,7 @@ void adicionar_fifo(Frame *memoria, int frame) {
 }
 
 int remover_fifo(Frame *memoria) {
-    int frame_substituir = 0;
+    int frame_substituir = -1;
     int menor_tempo = memoria[0].tempo;
 
     for (int i = 1; i < FRAME_TAMANHO; i++) {
@@ -277,25 +306,29 @@ int remover_fifo(Frame *memoria) {
         }
     }
 
-    memoria[frame_substituir].num_pagina = -1;
-    memoria[frame_substituir].ocupado = 0;
-    memoria[frame_substituir].ultimo_acesso = 0;
-    memoria[frame_substituir].tempo = 0;
-    memset(memoria[frame_substituir].dados, 0, PAGE_SIZE);
+    if (frame_substituir == -1) {
+        frame_substituir = 0;
+    }
 
     return frame_substituir;
 }
 
-void imprimir(int endereco_virtual, int frame, int valor) {
+void imprimir(int endereco_virtual) {
     int num_pagina = endereco_virtual / PAGE_SIZE;
     int offset = endereco_virtual % PAGE_SIZE;
 
-    int endereco_fisico = frame * PAGE_SIZE + offset;
+    int frame = -1;
+    for (int i = 0; i < FRAME_TAMANHO; i++) {
+        if (memoria[i].ocupado && memoria[i].num_pagina == num_pagina) {
+            frame = i;
+            break;
+        }
+    }
 
-    printf("Virtual address: %d Physical address: %d Value: %d\n", endereco_virtual, endereco_fisico, valor);
-}
-
-void imprimir_resultados(int tamanho) {
-    printf("Number of Translated Addresses = %d\n", tamanho);
-    printf("Page Faults = %d\n", page_faults);
+    if (frame != -1) {
+        int endereco_fisico = frame * PAGE_SIZE + offset;
+        printf("Virtual address: %d Physical address: %d Page number: %d\n", endereco_virtual, endereco_fisico, num_pagina);
+    } else {
+        printf("Página correspondente ao endereço virtual não encontrada na memória.\n");
+    }
 }
