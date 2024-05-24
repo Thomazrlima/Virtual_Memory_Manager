@@ -5,6 +5,13 @@
 #define FRAME_TAMANHO 128
 #define PAGE_SIZE 256
 #define MEMORY_SIZE 65536
+#define TLB_SIZE 16
+
+typedef struct {
+    int num_pagina;
+    int num_frame;
+    int valido;
+} TLB_Entry;
 
 typedef struct {
     int num_pagina;
@@ -21,6 +28,7 @@ typedef struct {
 
 Frame memoria[FRAME_TAMANHO];
 PageTable page_table[FRAME_TAMANHO];
+TLB_Entry TLB[TLB_SIZE];
 int page_faults = 0;
 
 // Leitura dos Addresses
@@ -41,6 +49,12 @@ int encontrar_frame_vazio();
 int substituir_frame();
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
 
+//TLB
+
+void iniciar_TLB();
+int buscar_TLB(int num_pagina);
+void atualizar_TLB(int num_pagina, int num_frame);
+
 // Backing_Storage
 void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
 
@@ -49,7 +63,7 @@ void adicionar_fifo(Frame *memoria, int frame);
 int remover_fifo(Frame *memoria);
 
 // Print
-void imprimir(int endereco_virtual, int frame, int valor);
+void imprimir(int endereco_virtual, int frame, int valor, int indice_TLB);
 void imprimir_resultados(int tamanho);
 
 int main() {
@@ -59,6 +73,7 @@ int main() {
 
     iniciar_memoria();
     iniciar_page_table();
+    iniciar_TLB();
 
     char** offset = extrair_offset(enderecos_binarios, tamanho);
     char** pagina = extrair_pagina(enderecos_binarios, tamanho);
@@ -207,26 +222,33 @@ int substituir_frame() {
 }
 
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
-    int frame_encontrado = verificar_page_table(num_pagina);
+    int frame_encontrado = buscar_TLB(num_pagina);
     if (frame_encontrado != -1) {
         memoria[frame_encontrado].ultimo_acesso++;
     } else {
-        page_faults++;
-        int frame_vazio = encontrar_frame_vazio();
-
-        if (frame_vazio != -1) {
-            ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
-            atualizar_frame(frame_vazio, num_pagina);
-            frame_encontrado = frame_vazio;
+        int frame_encontrado_memoria = verificar_page_table(num_pagina);
+        if (frame_encontrado_memoria != -1) {
+            frame_encontrado = frame_encontrado_memoria;
         } else {
-            int frame_substituir = substituir_frame();
-            ler_backing_store(backing_store, num_pagina, memoria[frame_substituir].dados);
-            atualizar_frame(frame_substituir, num_pagina);
-            frame_encontrado = frame_substituir;
+            page_faults++;
+            int frame_vazio = encontrar_frame_vazio();
+
+            if (frame_vazio != -1) {
+                ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
+                atualizar_frame(frame_vazio, num_pagina);
+                frame_encontrado = frame_vazio;
+            } else {
+                int frame_substituir = substituir_frame();
+                ler_backing_store(backing_store, num_pagina, memoria[frame_substituir].dados);
+                atualizar_frame(frame_substituir, num_pagina);
+                frame_encontrado = frame_substituir;
+            }
         }
+        atualizar_TLB(num_pagina, frame_encontrado);
     }
 
-    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, memoria[frame_encontrado].dados[offset]);
+    int indice_TLB = buscar_TLB(num_pagina);
+    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, memoria[frame_encontrado].dados[offset], indice_TLB);
 }
 
 // Backing_Storage
@@ -286,13 +308,41 @@ int remover_fifo(Frame *memoria) {
     return frame_substituir;
 }
 
-void imprimir(int endereco_virtual, int frame, int valor) {
+//TLB
+void iniciar_TLB() {
+    for (int i = 0; i < TLB_SIZE; i++) {
+        TLB[i].num_pagina = -1;
+        TLB[i].num_frame = -1;
+        TLB[i].valido = 0;
+    }
+}
+
+int buscar_TLB(int num_pagina) {
+    for (int i = 0; i < TLB_SIZE; i++) {
+        if (TLB[i].num_pagina == num_pagina && TLB[i].valido == 1) {
+            return TLB[i].num_frame;
+        }
+    }
+    return -1;
+}
+
+void atualizar_TLB(int num_pagina, int num_frame) {
+    static int proxima_entrada = 0;
+
+    proxima_entrada = (proxima_entrada + 1) % TLB_SIZE;
+
+    TLB[proxima_entrada].num_pagina = num_pagina;
+    TLB[proxima_entrada].num_frame = num_frame;
+    TLB[proxima_entrada].valido = 1;
+}
+
+void imprimir(int endereco_virtual, int frame, int valor, int indice_TLB) {
     int num_pagina = endereco_virtual / PAGE_SIZE;
     int offset = endereco_virtual % PAGE_SIZE;
 
     int endereco_fisico = frame * PAGE_SIZE + offset;
 
-    printf("Virtual address: %d Physical address: %d Value: %d\n", endereco_virtual, endereco_fisico, valor);
+    printf("Virtual address: %d TLB: %d Physical address: %d Value: %d\n", endereco_virtual, indice_TLB, endereco_fisico, valor);
 }
 
 void imprimir_resultados(int tamanho) {
