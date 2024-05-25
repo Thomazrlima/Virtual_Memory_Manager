@@ -250,7 +250,7 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
         frame_encontrado = frame_vazio;
     }
 
-    if (frame_encontrado != tlb[tlb_hit_index].num_frame) {
+    if (frame_encontrado != tlb[tlb_index].num_frame) {
         atualizar_tlb(num_pagina, frame_encontrado);
     }
 
