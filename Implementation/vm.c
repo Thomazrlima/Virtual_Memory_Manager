@@ -4,7 +4,6 @@
 
 #define FRAME_TAMANHO 128
 #define PAGE_SIZE 256
-#define MEMORY_SIZE 65536
 #define TLB_SIZE 16
 
 typedef struct {
@@ -33,7 +32,6 @@ TLBEntry tlb[TLB_SIZE];
 int page_faults = 0;
 int tlb_hit = 0;
 int tlb_index = 0;
-int tlb_hit_flag = 0;
 
 // Leitura dos Addresses
 int* ler_enderecos(const char* caminho, int* tamanho);
@@ -56,7 +54,7 @@ void adicionar_fifo(Frame *memoria, int frame);
 int remover_fifo(Frame *memoria);
 
 // Print
-void imprimir(int endereco_virtual, int frame, int valor, int tlb_index_to_print);
+void imprimir(int endereco_virtual, int frame, int valor);
 void imprimir_resultados(int tamanho);
 
 // TLB
@@ -64,7 +62,7 @@ void atualizar_tlb(int num_pagina, int num_frame);
 
 int main() {
     int tamanho;
-    int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    int* enderecos = ler_enderecos("C:/PENTES/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
     iniciar_memoria();
@@ -74,7 +72,7 @@ int main() {
         char** offset = extrair_offset(enderecos_binarios, tamanho);
         char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
-        FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+        FILE *backing_store = fopen("C:/PENTES/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
 
         for (int i = 0; i < tamanho; i++) {
             int num_pagina = (int)strtol(pagina[i], NULL, 2);
@@ -207,20 +205,18 @@ void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer) {
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
     int frame_encontrado = -1;
     int valor = 0;
-    int tlb_hit_index = -1;
 
     for (int i = 0; i < TLB_SIZE; i++) {
         if (tlb[i].num_pagina == num_pagina && tlb[i].valido) {
             frame_encontrado = tlb[i].num_frame;
             tlb_hit++;
-            tlb_hit_index = i;
             break;
         }
     }
 
     if (frame_encontrado != -1) {
         valor = memoria[frame_encontrado].dados[offset];
-        imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor, tlb_hit_index);
+        imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor);
         return;
     }
 
@@ -256,7 +252,7 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
 
     valor = memoria[frame_encontrado].dados[offset];
 
-    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor, tlb_index);
+    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor);
     tlb_index = (tlb_index + 1) % TLB_SIZE;
 }
 
@@ -313,13 +309,13 @@ void atualizar_tlb(int num_pagina, int num_frame) {
 }
 
 
-void imprimir(int endereco_virtual, int frame, int valor, int tlb_index_to_print) {
+void imprimir(int endereco_virtual, int frame, int valor) {
     int num_pagina = endereco_virtual / PAGE_SIZE;
     int offset = endereco_virtual % PAGE_SIZE;
 
     int endereco_fisico = frame * PAGE_SIZE + offset;
 
-    printf("Virtual address: %d TLB: %d Physical address: %d Value: %d\n", endereco_virtual, tlb_index_to_print, endereco_fisico, valor);
+    printf("Virtual address: %d TLB: %d Physical address: %d Value: %d\n", endereco_virtual, tlb_index, endereco_fisico, valor);
 }
 
 

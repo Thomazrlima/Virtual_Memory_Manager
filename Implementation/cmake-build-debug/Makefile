@@ -128,29 +128,29 @@ Implementation/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/build
 .PHONY : Implementation/fast
 
-main.obj: main.c.obj
-.PHONY : main.obj
+vm.obj: vm.c.obj
+.PHONY : vm.obj
 
 # target to build an object file
-main.c.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/main.c.obj
-.PHONY : main.c.obj
+vm.c.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/vm.c.obj
+.PHONY : vm.c.obj
 
-main.i: main.c.i
-.PHONY : main.i
+vm.i: vm.c.i
+.PHONY : vm.i
 
 # target to preprocess a source file
-main.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/main.c.i
-.PHONY : main.c.i
+vm.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/vm.c.i
+.PHONY : vm.c.i
 
-main.s: main.c.s
-.PHONY : main.s
+vm.s: vm.c.s
+.PHONY : vm.s
 
 # target to generate assembly for a file
-main.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/main.c.s
-.PHONY : main.c.s
+vm.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Implementation.dir\build.make CMakeFiles/Implementation.dir/vm.c.s
+.PHONY : vm.c.s
 
 # Help Target
 help:
@@ -161,9 +161,9 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... Implementation
-	@echo ... main.obj
-	@echo ... main.i
-	@echo ... main.s
+	@echo ... vm.obj
+	@echo ... vm.i
+	@echo ... vm.s
 .PHONY : help
 
 

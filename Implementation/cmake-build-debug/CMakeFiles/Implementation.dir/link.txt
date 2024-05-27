@@ -1,0 +1,3 @@
+C:\Users\thoma\AppData\Local\Programs\CLion\bin\cmake\win\x64\bin\cmake.exe -E rm -f CMakeFiles\Implementation.dir/objects.a
+C:\Users\thoma\AppData\Local\Programs\CLion\bin\mingw\bin\ar.exe qc CMakeFiles\Implementation.dir/objects.a @CMakeFiles\Implementation.dir\objects1.rsp
+C:\Users\thoma\AppData\Local\Programs\CLion\bin\mingw\bin\gcc.exe -g -Wl,--whole-archive CMakeFiles\Implementation.dir/objects.a -Wl,--no-whole-archive -o Implementation.exe -Wl,--out-implib,libImplementation.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\Implementation.dir\linkLibs.rsp

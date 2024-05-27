@@ -76,7 +76,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="C:/PENTES/Virtual_Memory_Manager/Implementation/main.c">
+		<Unit filename="C:/PENTES/Virtual_Memory_Manager/Implementation/vm.c">
 			<Option target="Implementation"/>
 		</Unit>
 		<Unit filename="C:/PENTES/Virtual_Memory_Manager/Implementation/CMakeLists.txt">
