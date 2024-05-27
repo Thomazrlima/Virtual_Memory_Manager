@@ -50,7 +50,6 @@ void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
 
 // FIFO Queue
-void adicionar_fifo(Frame *memoria, int frame);
 int remover_fifo(Frame *memoria);
 
 // Print
@@ -62,7 +61,7 @@ void atualizar_tlb(int num_pagina, int num_frame);
 
 int main() {
     int tamanho;
-    int* enderecos = ler_enderecos("C:/PENTES/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    int* enderecos = ler_enderecos("addresses.txt", &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
     iniciar_memoria();
@@ -72,7 +71,7 @@ int main() {
         char** offset = extrair_offset(enderecos_binarios, tamanho);
         char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
-        FILE *backing_store = fopen("C:/PENTES/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+        FILE *backing_store = fopen("BACKING_STORE.bin", "rb");
 
         for (int i = 0; i < tamanho; i++) {
             int num_pagina = (int)strtol(pagina[i], NULL, 2);
@@ -257,39 +256,10 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
 }
 
 // FIFO Queue
-void adicionar_fifo(Frame *memoria, int frame) {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].num_frame == frame) {
-            return;
-        }
-    }
-
-    int frame_vazio = -1;
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (!memoria[i].ocupado) {
-            frame_vazio = i;
-            break;
-        }
-    }
-
-    if (frame_vazio != -1) {
-        memoria[frame_vazio].num_frame = frame;
-        memoria[frame_vazio].ocupado = 1;
-        memoria[frame_vazio].ultimo_acesso++;
-        memoria[frame_vazio].tempo++;
-    } else {
-        int frame_substituir = remover_fifo(memoria);
-        memoria[frame_substituir].num_frame = frame;
-        memoria[frame_substituir].ocupado = 1;
-        memoria[frame_substituir].ultimo_acesso++;
-        memoria[frame_substituir].tempo++;
-    }
-}
-
 int remover_fifo(Frame *memoria) {
     int frame_substituir = -1;
     int menor_tempo = memoria[0].tempo;
-    frame_substituir = 0; // Inicializa com o primeiro frame
+    frame_substituir = 0;
 
     for (int i = 1; i < FRAME_TAMANHO; i++) {
         if (memoria[i].tempo < menor_tempo) {
