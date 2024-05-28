@@ -46,11 +46,12 @@ void iniciar_page_table();
 
 // Backing_Storage
 void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset,FILE * arquivo);
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset,FILE * arquivo, char * algoritmo);
 
-// FIFO Queue
+// Algoritmo Queue
 int remover_fifo();
 void atualizar_tempo();
+int remover_lru();
 
 // Print
 void imprimir(int endereco_virtual, int endereco_fisico, int valor, int index_tlb, FILE * arquivo);
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
         {
             int num_pagina = (int)strtol(pagina[i], NULL, 2);
             int offset_val = (int)strtol(offset[i], NULL, 2);
-            acessar_memoria(backing_store, num_pagina, offset_val,saida);
+            acessar_memoria(backing_store, num_pagina, offset_val,saida,argv[2]);
         }
 
         
@@ -103,7 +104,7 @@ int main(int argc, char *argv[])
 }
 
 
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset, FILE * arquivo)
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset, FILE * arquivo, char * algoritmo)
 {
     int frame_encontrado = -1;
     int valor = 0;
@@ -163,8 +164,17 @@ void acessar_memoria(FILE *backing_store, int num_pagina, int offset, FILE * arq
                 return;
             }
         }
-
-        int index = remover_fifo();
+        
+        int index;
+        if(strcmp(algoritmo,"fifo") == 0)
+        {
+            index = remover_fifo();
+        }
+        else if (strcmp(algoritmo,"lru") == 0)
+        {
+            index = remover_lru();
+        }
+        
         page_table[index].ocupado = 1;
         page_table[index].num_pagina = num_pagina;
         page_table[index].ultimo_acesso++;
@@ -222,6 +232,24 @@ int remover_fifo()
         if (page_table[i].tempo > maior_tempo)
         {
             maior_tempo = page_table[i].tempo;
+            page_substituir = i;
+        }
+    }
+
+    return page_substituir;
+}
+
+// FIFO Queue
+int remover_lru()
+{
+    int page_substituir = 0;
+    int mais_antigo = page_table[0].ultimo_acesso;
+
+    for (int i = 1; i < FRAME_TAMANHO; i++)
+    {
+        if (page_table[i].ultimo_acesso < mais_antigo)
+        {
+            mais_antigo = page_table[i].ultimo_acesso;
             page_substituir = i;
         }
     }
