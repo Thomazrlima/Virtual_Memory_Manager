@@ -4,26 +4,28 @@
 
 #define FRAME_TAMANHO 128
 #define PAGE_SIZE 256
-#define MEMORY_SIZE 65536
 #define TLB_SIZE 16
 
-typedef struct {
+typedef struct
+{
     int num_pagina;
-} PageTable;
-
-typedef struct {
     int num_frame;
-    int num_pagina;
-    int ocupado;
     int ultimo_acesso;
     int tempo;
+    int ocupado;
+} PageTable;
+
+typedef struct
+{
+    int num_frame;
     char dados[PAGE_SIZE];
 } Frame;
 
-typedef struct {
+typedef struct
+{
     int num_pagina;
     int num_frame;
-    int valido;
+    int pageTableIndex;
 } TLBEntry;
 
 Frame memoria[FRAME_TAMANHO];
@@ -33,10 +35,9 @@ TLBEntry tlb[TLB_SIZE];
 int page_faults = 0;
 int tlb_hit = 0;
 int tlb_index = 0;
-int tlb_hit_flag = 0;
 
 // Leitura dos Addresses
-int* ler_enderecos(const char* caminho, int* tamanho);
+int* ler_enderecos(char* caminho, int* tamanho);
 char** int_para_binario(int* enderecos, int tamanho);
 char** extrair_offset(char** enderecos_binarios, int tamanho);
 char** extrair_pagina(char** enderecos_binarios, int tamanho);
@@ -44,39 +45,44 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho);
 // Memoria
 void iniciar_memoria();
 void iniciar_page_table();
-void atualizar_frame(int num_frame, int num_pagina);
-void atualizar_page_table(int num_pagina, int num_frame);
+void atualizar_page_table(int num_pagina,int index);
 
 // Backing_Storage
 void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer);
 void acessar_memoria(FILE *backing_store, int num_pagina, int offset);
 
 // FIFO Queue
-void adicionar_fifo(Frame *memoria, int frame);
-int remover_fifo(Frame *memoria);
+int remover_fifo();
+int adicionar_page_table(int num_pagina, int num_frame);
+void atualizar_tempo();
 
 // Print
-void imprimir(int endereco_virtual, int frame, int valor, int tlb_index_to_print);
+void imprimir(int endereco_virtual, int frame, int valor, int index_tlb);
 void imprimir_resultados(int tamanho);
 
 // TLB
-void atualizar_tlb(int num_pagina, int num_frame);
+void atualizar_tlb(int num_pagina, int num_frame,int indexPageTable);
 
-int main() {
+
+
+int main(int argc, char *argv[])
+{
     int tamanho;
-    int* enderecos = ler_enderecos("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/addresses.txt", &tamanho);
+    int* enderecos = ler_enderecos(argv[1], &tamanho);
     char** enderecos_binarios = int_para_binario(enderecos, tamanho);
 
     iniciar_memoria();
     iniciar_page_table();
 
-    if (enderecos) {
+    if (enderecos)
+    {
         char** offset = extrair_offset(enderecos_binarios, tamanho);
         char** pagina = extrair_pagina(enderecos_binarios, tamanho);
 
-        FILE *backing_store = fopen("D:/PENTES/Pessoal/Virtual_Memory_Manager/Implementation/BACKING_STORE.bin", "rb");
+        FILE *backing_store = fopen("BACKING_STORE.bin", "rb");
 
-        for (int i = 0; i < tamanho; i++) {
+        for (int i = 0; i < tamanho; i++)
+        {
             int num_pagina = (int)strtol(pagina[i], NULL, 2);
             int offset_val = (int)strtol(offset[i], NULL, 2);
             acessar_memoria(backing_store, num_pagina, offset_val);
@@ -84,7 +90,8 @@ int main() {
 
         fclose(backing_store);
 
-        for (int i = 0; i < tamanho; i++) {
+        for (int i = 0; i < tamanho; i++)
+        {
             free(enderecos_binarios[i]);
             free(offset[i]);
             free(pagina[i]);
@@ -101,10 +108,166 @@ int main() {
     return 0;
 }
 
+
+void acessar_memoria(FILE *backing_store, int num_pagina, int offset)
+{
+    int frame_encontrado = -1;
+    int valor = 0;
+    int offset_index = offset -1;
+
+    for (int i = 0; i < TLB_SIZE; i++)
+    {
+        if (tlb[i].num_pagina == num_pagina )
+        {
+            atualizar_tempo();
+            frame_encontrado = tlb[i].num_frame;
+            page_table[tlb[i].pageTableIndex].ultimo_acesso++;
+            valor = memoria[frame_encontrado].dados[offset_index];
+            imprimir((num_pagina * PAGE_SIZE) + offset, frame_encontrado, valor,i);
+            tlb_hit++;
+            return;
+        }
+    }
+
+    for (int i = 0; i < FRAME_TAMANHO; i++)
+    {
+        if (page_table[i].num_pagina == num_pagina)
+        {
+            atualizar_tempo();
+            frame_encontrado = page_table[i].num_frame;
+            valor = memoria[frame_encontrado].dados[offset_index];
+            page_table[i].ultimo_acesso++;
+            atualizar_tlb(num_pagina, frame_encontrado,i);
+            tlb[tlb_index].num_pagina = num_pagina;
+            tlb[tlb_index].num_frame = frame_encontrado;
+            tlb[tlb_index].pageTableIndex = i;
+            imprimir((num_pagina * PAGE_SIZE) + offset, frame_encontrado, valor,tlb_index);
+            tlb_index = (tlb_index + 1) % 16;
+            return;
+        }
+    }
+
+    if (frame_encontrado == -1)
+    {
+        page_faults++;
+        for (int i = 0; i < FRAME_TAMANHO; i++)
+        {
+            if (page_table[i].ocupado == 0)
+            {
+                atualizar_tempo();
+                page_table[i].ocupado = 1;
+                page_table[i].ultimo_acesso++;
+                ler_backing_store(backing_store, num_pagina, memoria[page_table[i].num_frame].dados);
+                valor = memoria[page_table[i].num_frame].dados[offset_index];
+                int index = adicionar_page_table(num_pagina,page_table[i].num_frame);
+                tlb[tlb_index].num_pagina = num_pagina;
+                tlb[tlb_index].num_frame = page_table[i].num_frame;
+                tlb[tlb_index].pageTableIndex = i;
+                imprimir((num_pagina * PAGE_SIZE) + offset, page_table[i].num_frame, valor,index);
+                tlb_index = (tlb_index + 1) % 16;
+                return;
+            }
+        }
+
+        int index = remover_fifo();
+        atualizar_tempo();
+        atualizar_page_table(num_pagina,index);
+        ler_backing_store(backing_store, num_pagina, memoria[page_table[index].num_frame].dados);
+        valor = memoria[page_table[index].num_frame].dados[offset_index];
+        page_table[index].ultimo_acesso++;
+        tlb[tlb_index].num_pagina = num_pagina;
+        tlb[tlb_index].num_frame = page_table[index].num_frame;
+        tlb[tlb_index].pageTableIndex = index;
+        imprimir((num_pagina * PAGE_SIZE) + offset, frame_encontrado, valor,tlb_index);
+        tlb_index = (tlb_index + 1) % 16;
+        return;
+    }
+
+}
+
+
+// Memoria
+void iniciar_memoria()
+{
+    for (int i = 0; i < FRAME_TAMANHO; i++)
+    {
+        memoria[i].num_frame = i;
+    }
+}
+
+void iniciar_page_table()
+{
+    for (int i = 0; i < FRAME_TAMANHO; i++)
+    {
+        page_table[i].tempo = 0;
+        page_table[i].ultimo_acesso = 0;
+        page_table[i].num_pagina = -1;
+        page_table[i].num_frame = i;
+    }
+}
+
+
+void atualizar_page_table(int num_pagina,int index)
+{
+    page_table[index].num_pagina = num_pagina;
+    page_table[index].tempo = 0;
+}
+
+int adicionar_page_table(int num_pagina, int num_frame)
+{
+    for (int i = 0; i < FRAME_TAMANHO; i++)
+    {
+        if(page_table[i].ocupado == 0)
+        {
+            page_table[i].num_frame = num_frame;
+            page_table[i].num_pagina = num_pagina;
+            page_table[i].tempo = 0;
+            page_table[i].ultimo_acesso++;
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+
+void atualizar_tempo()
+{
+    for (int i = 0; i < FRAME_TAMANHO; i++)
+    {
+      if(page_table[i].ocupado == 1)
+      {
+        page_table[i].tempo++;
+      }
+    }
+}
+
+
+// FIFO Queue
+int remover_fifo()
+{
+    int page_substituir = 0;
+    int maior_tempo = page_table[0].tempo;
+
+    for (int i = 1; i < FRAME_TAMANHO; i++)
+    {
+        if (page_table[i].tempo > maior_tempo)
+        {
+            maior_tempo = page_table[i].tempo;
+            page_substituir = i;
+        }
+    }
+
+    return page_substituir;
+}
+
+
 // Leitura dos Addresses
-int* ler_enderecos(const char* caminho, int* tamanho) {
+int* ler_enderecos(char* caminho, int* tamanho)
+{
     FILE *file = fopen(caminho, "r");
-    if (!file) {
+    if (file == NULL)
+    {
         return NULL;
     }
 
@@ -114,9 +277,11 @@ int* ler_enderecos(const char* caminho, int* tamanho) {
 
     enderecos = (int*)malloc(capacidade * sizeof(int));
 
-    while (fscanf(file, "%d", &enderecos[cont]) == 1) {
+    while (fscanf(file, "%d", &enderecos[cont]) == 1)
+    {
         cont++;
-        if (cont >= capacidade) {
+        if (cont >= capacidade)
+        {
             capacidade *= 2;
             enderecos = (int*)realloc(enderecos, capacidade * sizeof(int));
         }
@@ -128,13 +293,17 @@ int* ler_enderecos(const char* caminho, int* tamanho) {
     return enderecos;
 }
 
-char** int_para_binario(int* enderecos, int tamanho) {
+
+char** int_para_binario(int* enderecos, int tamanho)
+{
     char** enderecos_binarios = (char**)malloc(tamanho * sizeof(char*));
 
-    for (int i = 0; i < tamanho; i++) {
+    for (int i = 0; i < tamanho; i++)
+    {
         int numero = enderecos[i];
         enderecos_binarios[i] = (char*)malloc(17 * sizeof(char));
-        for (int j = 15; j >= 0; j--) {
+        for (int j = 15; j >= 0; j--)
+        {
             enderecos_binarios[i][j] = (numero & 1) + '0';
             numero >>= 1;
         }
@@ -144,10 +313,13 @@ char** int_para_binario(int* enderecos, int tamanho) {
     return enderecos_binarios;
 }
 
-char** extrair_offset(char** enderecos_binarios, int tamanho) {
+
+char** extrair_offset(char** enderecos_binarios, int tamanho)
+{
     char** offset = (char**)malloc(tamanho * sizeof(char*));
 
-    for (int i = 0; i < tamanho; i++) {
+    for (int i = 0; i < tamanho; i++)
+    {
         offset[i] = (char*)malloc(9 * sizeof(char));
         strncpy(offset[i], enderecos_binarios[i] + 8, 8);
         offset[i][8] = '\0';
@@ -156,10 +328,13 @@ char** extrair_offset(char** enderecos_binarios, int tamanho) {
     return offset;
 }
 
-char** extrair_pagina(char** enderecos_binarios, int tamanho) {
+
+char** extrair_pagina(char** enderecos_binarios, int tamanho)
+{
     char** pagina = (char**)malloc(tamanho * sizeof(char*));
 
-    for (int i = 0; i < tamanho; i++) {
+    for (int i = 0; i < tamanho; i++)
+    {
         pagina[i] = (char*)malloc(9 * sizeof(char));
         strncpy(pagina[i], enderecos_binarios[i], 8);
         pagina[i][8] = '\0';
@@ -168,162 +343,34 @@ char** extrair_pagina(char** enderecos_binarios, int tamanho) {
     return pagina;
 }
 
-// Memoria
-void iniciar_memoria() {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        memoria[i].num_frame = i;
-        memoria[i].num_pagina = -1;
-        memoria[i].ocupado = 0;
-        memoria[i].ultimo_acesso = 0;
-        memoria[i].tempo = 0;
-    }
-}
-
-void iniciar_page_table() {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        page_table[i].num_pagina = -1;
-    }
-}
-
-void atualizar_frame(int num_frame, int num_pagina) {
-    memoria[num_frame].num_pagina = num_pagina;
-    memoria[num_frame].ocupado = 1;
-    memoria[num_frame].ultimo_acesso++;
-    memoria[num_frame].tempo++;
-    atualizar_page_table(num_pagina, num_frame);
-}
-
-void atualizar_page_table(int num_pagina, int num_frame) {
-    page_table[num_pagina].num_pagina = num_frame;
-}
 
 // Backing_Storage
-void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer) {
+void ler_backing_store(FILE *backing_store, int num_pagina, char *buffer)
+{
     int offset = num_pagina * PAGE_SIZE;
-    fseek(backing_store, offset, SEEK_SET);
-    fread(buffer, sizeof(char), PAGE_SIZE, backing_store);
+    fseek(backing_store, offset + 1, SEEK_SET);
+    long size = fread(buffer, sizeof(char), PAGE_SIZE, backing_store);
 }
 
-void acessar_memoria(FILE *backing_store, int num_pagina, int offset) {
-    int frame_encontrado = -1;
-    int valor = 0;
-    int tlb_hit_index = -1;
-
-    for (int i = 0; i < TLB_SIZE; i++) {
-        if (tlb[i].num_pagina == num_pagina && tlb[i].valido) {
-            frame_encontrado = tlb[i].num_frame;
-            tlb_hit++;
-            tlb_hit_index = i;
-            break;
-        }
-    }
-
-    if (frame_encontrado != -1) {
-        valor = memoria[frame_encontrado].dados[offset];
-        imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor, tlb_hit_index);
-        return;
-    }
-
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].ocupado && memoria[i].num_pagina == num_pagina) {
-            frame_encontrado = i;
-            break;
-        }
-    }
-
-    if (frame_encontrado == -1) {
-        page_faults++;
-        int frame_vazio = -1;
-        for (int i = 0; i < FRAME_TAMANHO; i++) {
-            if (!memoria[i].ocupado) {
-                frame_vazio = i;
-                break;
-            }
-        }
-
-        if (frame_vazio == -1) {
-            frame_vazio = remover_fifo(memoria);
-        }
-
-        ler_backing_store(backing_store, num_pagina, memoria[frame_vazio].dados);
-        atualizar_frame(frame_vazio, num_pagina);
-        frame_encontrado = frame_vazio;
-    }
-
-    if (frame_encontrado != tlb[tlb_index].num_frame) {
-        atualizar_tlb(num_pagina, frame_encontrado);
-    }
-
-    valor = memoria[frame_encontrado].dados[offset];
-
-    imprimir(num_pagina * PAGE_SIZE + offset, frame_encontrado, valor, tlb_index);
-    tlb_index = (tlb_index + 1) % TLB_SIZE;
-}
-
-// FIFO Queue
-void adicionar_fifo(Frame *memoria, int frame) {
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].num_frame == frame) {
-            return;
-        }
-    }
-
-    int frame_vazio = -1;
-    for (int i = 0; i < FRAME_TAMANHO; i++) {
-        if (!memoria[i].ocupado) {
-            frame_vazio = i;
-            break;
-        }
-    }
-
-    if (frame_vazio != -1) {
-        memoria[frame_vazio].num_frame = frame;
-        memoria[frame_vazio].ocupado = 1;
-        memoria[frame_vazio].ultimo_acesso++;
-        memoria[frame_vazio].tempo++;
-    } else {
-        int frame_substituir = remover_fifo(memoria);
-        memoria[frame_substituir].num_frame = frame;
-        memoria[frame_substituir].ocupado = 1;
-        memoria[frame_substituir].ultimo_acesso++;
-        memoria[frame_substituir].tempo++;
-    }
-}
-
-int remover_fifo(Frame *memoria) {
-    int frame_substituir = -1;
-    int menor_tempo = memoria[0].tempo;
-    frame_substituir = 0; // Inicializa com o primeiro frame
-
-    for (int i = 1; i < FRAME_TAMANHO; i++) {
-        if (memoria[i].tempo < menor_tempo) {
-            menor_tempo = memoria[i].tempo;
-            frame_substituir = i;
-        }
-    }
-
-    return frame_substituir;
-}
 
 // TLB
-void atualizar_tlb(int num_pagina, int num_frame) {
-    tlb[tlb_index].num_pagina = num_pagina;
-    tlb[tlb_index].num_frame = num_frame;
-    tlb[tlb_index].valido = 1;
+void atualizar_tlb(int num_pagina, int num_frame,int indexPageTable)
+{
+
 }
 
 
-void imprimir(int endereco_virtual, int frame, int valor, int tlb_index_to_print) {
-    int num_pagina = endereco_virtual / PAGE_SIZE;
+void imprimir(int endereco_virtual, int frame, int valor, int index_tlb)
+{
     int offset = endereco_virtual % PAGE_SIZE;
+    int endereco_fisico = (frame * PAGE_SIZE) + offset;
 
-    int endereco_fisico = frame * PAGE_SIZE + offset;
-
-    printf("Virtual address: %d TLB: %d Physical address: %d Value: %d\n", endereco_virtual, tlb_index_to_print, endereco_fisico, valor);
+    printf("Virtual address: %d TLB: %d Physical address: %d Value: %d\n", endereco_virtual, index_tlb, endereco_fisico, valor);
 }
 
 
-void imprimir_resultados(int tamanho) {
+void imprimir_resultados(int tamanho)
+{
     printf("Number of Translated Addresses = %d\n", tamanho);
     printf("Page Faults = %d\n", page_faults);
     printf("Page Fault Rate = %.3f\n", (float)page_faults / tamanho);
